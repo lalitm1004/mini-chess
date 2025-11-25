@@ -23,6 +23,7 @@ def test_checkmate_detection():
     grid[1, 3] = Piece(PieceColor.BLACK, PieceType.ROOK)
 
     board = Board(grid=grid)
+    board.compute_game_state()
 
     print(f"White Check Status: {board.check_status[PieceColor.WHITE]}")
     print(f"White Valid Moves: {len(board.valid_moves[PieceColor.WHITE])}")

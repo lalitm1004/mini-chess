@@ -47,6 +47,7 @@ def main():
     print("Enter moves as 'a2 a3'")
 
     board = Board()
+    board.compute_game_state()  # Compute valid moves and game state
     agent = MinimaxAgent()
 
     turn = PieceColor.WHITE
@@ -118,6 +119,7 @@ def main():
                         continue
 
                     board = next_board
+                    board.compute_game_state()
                     break
 
                 except (ValueError, IndexError) as e:
@@ -139,6 +141,7 @@ def main():
 
                 print(f"Agent plays: {from_str} {to_str}")
                 board = board.apply_move(best_move)
+                board.compute_game_state()
 
             turn = PieceColor.WHITE
 

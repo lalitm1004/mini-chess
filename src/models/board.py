@@ -41,280 +41,226 @@ class Board:
         self,
         grid: Optional[np.ndarray] = None,
         size: int = SIZE,
-        check_validate: bool = True,
     ):
-        self.check_validate = check_validate
-
+        """Initialize board with grid. Does NOT compute game state."""
         self.grid = grid if grid is not None else INITIAL_BOARD_STATE.copy()
         self.size = size
-        (
-            valid_moves_white,
-            valid_moves_black,
-            threatened_pieces_white,
-            threatened_pieces_black,
-        ) = self.__check_all_moves()
 
+        # Initialize empty game state attributes
         self.valid_moves: Dict[PieceColor, List[Move]] = {
+            PieceColor.WHITE: [],
+            PieceColor.BLACK: [],
+        }
+        self.threatened_pieces: Dict[PieceColor, List[Piece]] = {
+            PieceColor.WHITE: [],
+            PieceColor.BLACK: [],
+        }
+        self.threat_scores: Dict[PieceColor, int] = {
+            PieceColor.WHITE: 0,
+            PieceColor.BLACK: 0,
+        }
+        self.check_status: Dict[PieceColor, bool] = {
+            PieceColor.WHITE: False,
+            PieceColor.BLACK: False,
+        }
+        self.checkmate_status: Dict[PieceColor, bool] = {
+            PieceColor.WHITE: False,
+            PieceColor.BLACK: False,
+        }
+        self.stalemate_status: Dict[PieceColor, bool] = {
+            PieceColor.WHITE: False,
+            PieceColor.BLACK: False,
+        }
+
+    def compute_game_state(self) -> None:
+        """Compute valid moves, check, checkmate, and stalemate status."""
+        # Generate valid moves for both colors
+        valid_moves_white = self.get_valid_moves_for_color(PieceColor.WHITE)
+        valid_moves_black = self.get_valid_moves_for_color(PieceColor.BLACK)
+
+        self.valid_moves = {
             PieceColor.WHITE: valid_moves_white,
             PieceColor.BLACK: valid_moves_black,
         }
 
-        self.threatened_pieces: Dict[PieceColor, List[Piece]] = {
-            PieceColor.WHITE: threatened_pieces_white,
-            PieceColor.BLACK: threatened_pieces_black,
-        }
+        # Compute check status
+        is_check_white = self.is_check(PieceColor.WHITE)
+        is_check_black = self.is_check(PieceColor.BLACK)
 
-        self.threat_scores: Dict[PieceColor, int] = {
-            color: sum(piece.value for piece in pieces)
-            for color, pieces in self.threatened_pieces.items()
-        }
-
-        is_check_white, is_check_black = self.__is_check()
-        self.check_status: Dict[PieceColor, bool] = {
+        self.check_status = {
             PieceColor.WHITE: is_check_white,
             PieceColor.BLACK: is_check_black,
         }
 
-        # compute checkmate and stalemate states
-        is_checkmate_white, is_stalemate_white = self.__is_checkmate_or_stalemate(
-            PieceColor.WHITE
-        )
-        is_checkmate_black, is_stalemate_black = self.__is_checkmate_or_stalemate(
-            PieceColor.BLACK
-        )
-
+        # Compute checkmate and stalemate
         self.checkmate_status = {
-            PieceColor.WHITE: is_checkmate_white,
-            PieceColor.BLACK: is_checkmate_black,
+            PieceColor.WHITE: is_check_white and len(valid_moves_white) == 0,
+            PieceColor.BLACK: is_check_black and len(valid_moves_black) == 0,
         }
 
         self.stalemate_status = {
-            PieceColor.WHITE: is_stalemate_white,
-            PieceColor.BLACK: is_stalemate_black,
+            PieceColor.WHITE: not is_check_white and len(valid_moves_white) == 0,
+            PieceColor.BLACK: not is_check_black and len(valid_moves_black) == 0,
         }
 
-        # print(self.valid_moves)
-        # print(self.threatened_pieces)
+        # Compute threatened pieces (for compatibility)
+        threatened_white_positions = set()
+        threatened_black_positions = set()
 
-    def apply_move(
-        self, move: Move, override_validate: Optional[bool] = None
-    ) -> "Board":
+        for move in valid_moves_white:
+            if move.captured_piece.piece_type != PieceType.EMPTY:
+                threatened_black_positions.add(move.to_pos)
+
+        for move in valid_moves_black:
+            if move.captured_piece.piece_type != PieceType.EMPTY:
+                threatened_white_positions.add(move.to_pos)
+
+        self.threatened_pieces = {
+            PieceColor.WHITE: [self.grid[pos] for pos in threatened_white_positions],
+            PieceColor.BLACK: [self.grid[pos] for pos in threatened_black_positions],
+        }
+
+        self.threat_scores = {
+            color: sum(piece.value for piece in pieces)
+            for color, pieces in self.threatened_pieces.items()
+        }
+
+    def get_valid_moves_for_color(self, color: PieceColor) -> List[Move]:
+        """Get all valid moves for a given color (temp/main.py logic)."""
+        moves = []
+
+        for r in range(self.size):
+            for c in range(self.size):
+                piece = self.grid[r, c]
+                if piece.piece_type == PieceType.EMPTY:
+                    continue
+
+                if piece.piece_color != color:
+                    continue
+
+                # Get possible moves for this piece
+                piece_moves = piece.possible_moves(position=(r, c))
+
+                for to_pos in piece_moves:
+                    to_r, to_c = to_pos
+
+                    # Check bounds
+                    if not (0 <= to_r < self.size and 0 <= to_c < self.size):
+                        continue
+
+                    target = self.grid[to_r, to_c]
+
+                    # Pawn movement rules
+                    if piece.piece_type == PieceType.PAWN:
+                        dc = to_c - c
+                        if dc == 0:  # Forward move
+                            if target.piece_type != PieceType.EMPTY:
+                                continue
+                        else:  # Diagonal capture
+                            if target.piece_type == PieceType.EMPTY:
+                                continue
+                            if target.piece_color == piece.piece_color:
+                                continue
+                    else:
+                        # Can't capture own pieces
+                        if target.piece_type != PieceType.EMPTY:
+                            if target.piece_color == piece.piece_color:
+                                continue
+
+                    # For rooks and queens, check path
+                    if piece.piece_type in [PieceType.ROOK, PieceType.QUEEN]:
+                        if not self._is_path_clear(r, c, to_r, to_c):
+                            continue
+
+                    move = Move(
+                        piece,
+                        (r, c),
+                        (to_r, to_c),
+                        target if target.piece_type != PieceType.EMPTY else target,
+                    )
+
+                    # Don't allow moves that leave king in check
+                    new_board = self.apply_move(move)
+                    if not new_board.is_check(color):
+                        moves.append(move)
+
+        return moves
+
+    def apply_move(self, move: Move) -> "Board":
+        """Return new board state after applying move (temp/main.py logic)."""
         new_grid = self.grid.copy()
-
-        piece = move.piece
-        new_grid[move.to_pos] = piece
         new_grid[move.from_pos] = Piece(PieceColor.EMPTY, PieceType.EMPTY)
+        new_grid[move.to_pos] = move.piece
+        return Board(new_grid, self.size)
 
-        target_validate = (
-            override_validate if override_validate is not None else self.check_validate
-        )
+    def is_check(self, color: PieceColor) -> bool:
+        """Check if the given side's king is in check (temp/main.py logic)."""
+        # Find king position
+        king_pos = None
+        for r in range(self.size):
+            for c in range(self.size):
+                piece = self.grid[r, c]
+                if piece.piece_type == PieceType.KING and piece.piece_color == color:
+                    king_pos = (r, c)
+                    break
+            if king_pos:
+                break
 
-        return Board(grid=new_grid, size=self.size, check_validate=target_validate)
-
-    def __is_checkmate_or_stalemate(self, color: PieceColor) -> Tuple[bool, bool]:
-        # gathering all legal moves for this side
-        moves = self.valid_moves[color]
-
-        # side is in check
-        in_check = self.check_status[color]
-
-        # no legal moves
-        no_moves = len(moves) == 0
-
-        # checkmate logic
-        if in_check and no_moves:
-            return True, False
-
-        # stalemate logic
-        if (not in_check) and no_moves:
-            return False, True
-
-        # normal state
-        return False, False
-
-    def __check_all_moves(
-        self,
-    ) -> Tuple[List[Move], List[Move], List[Piece], List[Piece]]:
-        # threatened squares tracked as (row, col)
-        threatened_squares: Dict[PieceColor, set[Tuple[int, int]]] = {
-            PieceColor.WHITE: set(),
-            PieceColor.BLACK: set(),
-        }
-
-        valid_moves_map: Dict[PieceColor, List[Move]] = {
-            PieceColor.WHITE: [],
-            PieceColor.BLACK: [],
-        }
-
-        for r_target in range(self.size):
-            for c_target in range(self.size):
-                target_piece: Piece = self.grid[r_target, c_target]
-
-                for r_moving in range(self.size):
-                    for c_moving in range(self.size):
-                        moving_piece: Piece = self.grid[r_moving, c_moving]
-                        if moving_piece.piece_type == PieceType.EMPTY:
-                            continue
-
-                        if moving_piece.piece_color == target_piece.piece_color:
-                            continue
-
-                        move = Move(
-                            piece=moving_piece,
-                            from_pos=(r_moving, c_moving),
-                            to_pos=(r_target, c_target),
-                            captured_piece=target_piece,
-                        )
-
-                        is_valid, move = self.__move_properties(move)
-                        if not is_valid:
-                            continue
-
-                        # store valid move
-                        valid_moves_map[moving_piece.piece_color].append(move)
-
-                        # store threatened square
-                        if target_piece.piece_type != PieceType.EMPTY:
-                            threatened_squares[target_piece.piece_color].add(
-                                (r_target, c_target)
-                            )
-
-        threatened_pieces_white = [
-            self.grid[r][c] for (r, c) in threatened_squares[PieceColor.WHITE]
-        ]
-        threatened_pieces_black = [
-            self.grid[r][c] for (r, c) in threatened_squares[PieceColor.BLACK]
-        ]
-
-        return (
-            valid_moves_map[PieceColor.WHITE],
-            valid_moves_map[PieceColor.BLACK],
-            threatened_pieces_white,
-            threatened_pieces_black,
-        )
-
-    def __move_properties(self, move: Move) -> Tuple[bool, Move]:
-        r_to, c_to = move.to_pos
-
-        from_piece: Piece = move.piece
-        to_piece: Piece = self.grid[r_to, c_to]
-
-        validity = False
-
-        if (
-            from_piece.piece_color == to_piece.piece_color
-        ):  # target piece color cannot be the same
-            validity = False
-
-        match from_piece.piece_type:
-            case PieceType.PAWN:
-                validity = self.__is_move_valid_pawn(move)
-            case PieceType.ROOK:
-                validity = self.__is_move_valid_rook(move)
-            case PieceType.QUEEN:
-                validity = self.__is_move_valid_queen(move)
-            case PieceType.KING:
-                validity = self.__is_move_valid_king(move)
-            case PieceType.EMPTY:
-                validity = False
-
-        if validity:
-            move.captured_piece = to_piece
-
-            if self.check_validate:
-                check_validate_board = self.apply_move(move, override_validate=False)
-                if check_validate_board.check_status[from_piece.piece_color]:
-                    return False, move
-
-        return validity, move
-
-    def __is_move_valid_pawn(self, move: Move) -> bool:
-        assert move.piece.piece_type == PieceType.PAWN
-
-        piece_color = move.piece.piece_color
-
-        r_to, c_to = move.to_pos
-        r_from, c_from = move.from_pos
-
-        possible_moves = move.piece.possible_moves(position=move.from_pos)
-        if move.to_pos not in possible_moves:
+        if not king_pos:
             return False
 
-        forward = -1 if piece_color == PieceColor.WHITE else 1
+        return self._is_position_threatened(king_pos[0], king_pos[1], color)
 
-        to_piece: Piece = self.grid[move.to_pos]
-        if r_to == (r_from + forward):
-            if c_to == c_from:  # straight move
-                if to_piece.piece_type == PieceType.EMPTY:
+    def _is_position_threatened(self, row: int, col: int, by_color: PieceColor) -> bool:
+        """Check if a position is threatened by the OPPOSITE color."""
+        opponent_color = (
+            PieceColor.BLACK if by_color == PieceColor.WHITE else PieceColor.WHITE
+        )
+
+        for r in range(self.size):
+            for c in range(self.size):
+                piece = self.grid[r, c]
+                if piece.piece_type == PieceType.EMPTY:
+                    continue
+
+                if piece.piece_color != opponent_color:
+                    continue
+
+                # Check if this piece can attack the target position
+                if self._can_attack(r, c, row, col, piece):
                     return True
-            elif c_to != c_from:  # diagonal move
-                if to_piece.piece_type != PieceType.EMPTY:
-                    return True
-
-            return False
-
         return False
 
-    def __is_move_valid_rook(self, move: Move) -> bool:
-        assert move.piece.piece_type == PieceType.ROOK
+    def _can_attack(
+        self, from_r: int, from_c: int, to_r: int, to_c: int, piece: Piece
+    ) -> bool:
+        """Check if a piece can attack a position (temp/main.py logic)."""
+        dr, dc = to_r - from_r, to_c - from_c
 
-        r_to, c_to = move.to_pos
-        r_from, c_from = move.from_pos
+        # Pawn special case: can only capture diagonally
+        if piece.piece_type == PieceType.PAWN:
+            forward = -1 if piece.piece_color == PieceColor.WHITE else 1
+            return dr == forward and dc != 0 and abs(dc) == 1
 
-        if move.to_pos == move.from_pos:
+        # Check if move is in piece's possible moves
+        possible_moves = piece.possible_moves(position=(from_r, from_c))
+        if (to_r, to_c) not in possible_moves:
             return False
 
-        possible_moves = move.piece.possible_moves(position=move.from_pos)
-        if move.to_pos not in possible_moves:
-            return False
-
-        return self.__is_path_clear(r_from, c_from, r_to, c_to)
-
-    def __is_move_valid_queen(self, move: Move) -> bool:
-        assert move.piece.piece_type == PieceType.QUEEN
-
-        r_to, c_to = move.to_pos
-        r_from, c_from = move.from_pos
-
-        possible_moves = move.piece.possible_moves(position=move.from_pos)
-        if move.to_pos not in possible_moves:
-            return False
-
-        return self.__is_path_clear(r_from, c_from, r_to, c_to)
-
-    def __is_move_valid_king(self, move: Move) -> bool:
-        assert move.piece.piece_type == PieceType.KING
-
-        possible_moves = move.piece.possible_moves(position=move.from_pos)
-        if move.to_pos not in possible_moves:
-            return False
+        # For rook and queen, check if path is clear
+        if piece.piece_type in [PieceType.ROOK, PieceType.QUEEN]:
+            return self._is_path_clear(from_r, from_c, to_r, to_c)
 
         return True
 
-    def __is_path_clear(self, r_from: int, c_from: int, to_r: int, to_c: int) -> bool:
-        dr = 0 if to_r == r_from else (1 if to_r > r_from else -1)
-        dc = 0 if to_c == c_from else (1 if to_c > c_from else -1)
+    def _is_path_clear(self, from_r: int, from_c: int, to_r: int, to_c: int) -> bool:
+        """Check if path is clear for rook/queen movement (temp/main.py logic)."""
+        dr = 0 if to_r == from_r else (1 if to_r > from_r else -1)
+        dc = 0 if to_c == from_c else (1 if to_c > from_c else -1)
 
-        r, c = r_from + dr, c_from + dc
-
+        r, c = from_r + dr, from_c + dc
         while (r, c) != (to_r, to_c):
-            from_piece: PieceType = self.grid[r, c].piece_type
-            if from_piece != PieceType.EMPTY:
+            if self.grid[r, c].piece_type != PieceType.EMPTY:
                 return False
-
             r, c = r + dr, c + dc
-
         return True
-
-    def __is_check(self) -> Tuple[bool, bool]:
-        white_in_check = any(
-            piece.piece_type == PieceType.KING
-            for piece in self.threatened_pieces[PieceColor.WHITE]
-        )
-
-        black_in_check = any(
-            piece.piece_type == PieceType.KING
-            for piece in self.threatened_pieces[PieceColor.BLACK]
-        )
-
-        return white_in_check, black_in_check

@@ -108,8 +108,8 @@ PIECE_VALUES = {
 # Row 3: Black back rank (Rook, King, Queen, Rook)
 STARTING_POSITIONS = {
     Piece.W_ROOK: [(0, 0), (0, 3)],
-    Piece.W_QUEEN: [(0, 1)],
-    Piece.W_KING: [(0, 2)],
+    Piece.W_QUEEN: [(0, 2)],
+    Piece.W_KING: [(0, 1)],
     Piece.W_PAWN: [(1, 0), (1, 1), (1, 2), (1, 3)],
     Piece.B_PAWN: [(2, 0), (2, 1), (2, 2), (2, 3)],
     Piece.B_ROOK: [(3, 0), (3, 3)],

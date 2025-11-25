@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Final, List, Optional, Tuple
+from typing import Dict, Final, List, Optional, Tuple, Set
 
 from models.piece import Piece, PieceColor, PieceType
 from models.move import Move
@@ -14,12 +14,45 @@ class Board:
     ):
         self.grid = grid
         self.size = size
-        self.threatened_pieces_white, self.threatened_pieces_black = (
-            self.__get_threatened_pieces()
-        )
+        (
+            valid_moves_white,
+            valid_moves_black,
+            threatened_pieces_white,
+            threatened_pieces_black,
+        ) = self.__get_threatened_pieces()
 
-    def __get_threatened_pieces(self) -> Tuple[List[Piece], List[Piece]]:
-        threatened_map: Dict[PieceColor, List[Piece]] = {
+        self.valid_moves = {
+            PieceColor.WHITE: valid_moves_white,
+            PieceColor.BLACK: valid_moves_black,
+        }
+
+        self.threatened_pieces = {
+            PieceColor.WHITE: threatened_pieces_white,
+            PieceColor.BLACK: threatened_pieces_black,
+        }
+
+        self.threat_scores = {
+            color: sum(piece.value for piece in pieces)
+            for color, pieces in self.threatened_pieces.items()
+        }
+
+        is_check_white, is_check_black = self.__is_check()
+
+        self.check_status = {
+            PieceColor.WHITE: is_check_white,
+            PieceColor.BLACK: is_check_black,
+        }
+
+    def __check_all_moves(
+        self,
+    ) -> Tuple[List[Move], List[Move], List[Piece], List[Piece]]:
+        # threatened squares tracked as (row, col)
+        threatened_squares: Dict[PieceColor, set[Tuple[int, int]]] = {
+            PieceColor.WHITE: set(),
+            PieceColor.BLACK: set(),
+        }
+
+        valid_moves_map: Dict[PieceColor, List[Move]] = {
             PieceColor.WHITE: [],
             PieceColor.BLACK: [],
         }
@@ -30,54 +63,77 @@ class Board:
                 if target_piece.piece_type == PieceType.EMPTY:
                     continue
 
-                for r_attacker in range(self.size):
-                    for c_attacker in range(self.size):
-                        attacker_piece: Piece = self.grid[r_attacker, c_attacker]
-                        if attacker_piece.piece_type == PieceType.EMPTY:
+                for r_moving in range(self.size):
+                    for c_moving in range(self.size):
+                        moving_piece: Piece = self.grid[r_moving, c_moving]
+                        if moving_piece.piece_type == PieceType.EMPTY:
                             continue
 
-                        if target_piece.piece_color == attacker_piece.piece_color:
+                        if moving_piece.piece_color == target_piece.piece_color:
                             continue
 
                         move = Move(
-                            piece=attacker_piece,
-                            from_pos=(r_attacker, c_attacker),
+                            piece=moving_piece,
+                            from_pos=(r_moving, c_moving),
                             to_pos=(r_target, c_target),
                             captured_piece=target_piece,
                         )
 
-                        if self.__is_move_valid(move):
-                            threatened_map[target_piece.piece_color].append(
-                                target_piece
-                            )
+                        is_valid, move = self.__move_properties(move)
+                        if not is_valid:
+                            continue
+
+                        # store valid move
+                        valid_moves_map[moving_piece.piece_color].append(move)
+
+                        # store threatened square
+                        threatened_squares[target_piece.piece_color].add(
+                            (r_target, c_target)
+                        )
+
+        threatened_pieces_white = [
+            self.grid[r][c] for (r, c) in threatened_squares[PieceColor.WHITE]
+        ]
+        threatened_pieces_black = [
+            self.grid[r][c] for (r, c) in threatened_squares[PieceColor.BLACK]
+        ]
 
         return (
-            threatened_map[PieceColor.WHITE],
-            threatened_map[PieceColor.BLACK],
+            valid_moves_map[PieceColor.WHITE],
+            valid_moves_map[PieceColor.BLACK],
+            threatened_pieces_white,
+            threatened_pieces_black,
         )
 
-    def __is_move_valid(self, move: Move) -> bool:
+    def __move_properties(self, move: Move) -> Tuple[bool, Move]:
         r_to, c_to = move.to_pos
 
         from_piece: Piece = move.piece
         to_piece: Piece = self.grid[r_to, c_to]
 
+        validity = False
+
         if (
             from_piece.piece_color == to_piece.piece_color
         ):  # target piece color cannot be the same
-            return False
+            validity = False
 
         match from_piece.piece_type:
             case PieceType.PAWN:
-                return self.__is_move_valid_pawn(move, to_piece)
+                validity = self.__is_move_valid_pawn(move, to_piece)
             case PieceType.ROOK:
-                return self.__is_move_valid_rook(move, to_piece)
+                validity = self.__is_move_valid_rook(move)
             case PieceType.QUEEN:
-                return self.__is_move_valid_queen(move, to_piece)
+                validity = self.__is_move_valid_queen(move, to_piece)
             case PieceType.KING:
-                return self.__is_move_valid_king(move, to_piece)
+                validity = self.__is_move_valid_king(move)
             case PieceType.EMPTY:
-                return False
+                validity = False
+
+        if validity:
+            move.captured_piece = to_piece
+
+        return validity, move
 
     def __is_move_valid_pawn(self, move: Move, to_piece: Piece) -> bool:
         assert move.piece.piece_type == PieceType.PAWN
@@ -108,8 +164,23 @@ class Board:
 
         return False
 
-    def __is_move_valid_rook(self, move: Move, to_piece: Piece) -> bool:
+    def __is_move_valid_rook(self, move: Move) -> bool:
         assert move.piece.piece_type == PieceType.ROOK
+
+        r_to, c_to = move.to_pos
+        r_from, c_from = move.from_pos
+
+        if move.to_pos == move.from_pos:
+            return False
+
+        possible_moves = move.piece.possible_moves(position=move.from_pos)
+        if move.to_pos not in possible_moves:
+            return False
+
+        return self.__is_path_clear(r_from, c_from, r_to, c_to)
+
+    def __is_move_valid_queen(self, move: Move, to_piece: Piece) -> bool:
+        assert move.piece.piece_type == PieceType.QUEEN
 
         r_to, c_to = move.to_pos
         r_from, c_from = move.from_pos
@@ -118,31 +189,31 @@ class Board:
         if move.to_pos not in possible_moves:
             return False
 
-        if r_to == r_from:  # horizontal move
-            start_col = min(c_to, c_from)
-            end_col = max(c_to, c_from)
+        return self.__is_path_clear(r_from, c_from, r_to, c_to)
 
-            for col in range(start_col + 1, end_col):  # excl of both ends!
-                current_pos = (r_from, col)
-                current_piece_type: PieceType = self.grid[current_pos].piece_type
-                if current_piece_type != PieceType.EMPTY:
-                    return False
+    def __is_move_valid_king(self, move: Move) -> bool:
+        assert move.piece.piece_type == PieceType.KING
 
-            return True
-        elif c_to == c_from:  # vertical move
-            start_row = min(r_to, r_from)
-            end_row = max(r_to, r_from)
+        possible_moves = move.piece.possible_moves(position=move.from_pos)
+        if move.to_pos not in possible_moves:
+            return False
 
-            for row in range(start_row + 1, end_row):  # excl of both ends!
-                current_pos = (row, c_from)
-                current_piece_type: PieceType = self.grid[current_pos].piece_type
-                if current_piece_type != PieceType.EMPTY:
-                    return False
+        return True
 
-            return True
+    def __is_path_clear(self, r_from: int, c_from: int, to_r: int, to_c: int) -> bool:
+        dr = 0 if to_r == r_from else (1 if to_r > r_from else -1)
+        dc = 0 if to_c == c_from else (1 if to_c > c_from else -1)
 
-        return False
+        r, c = r_from + dr, c_from + dc
 
-    def __is_move_valid_queen(self, move: Move, to_piece: Piece) -> bool: ...
+        while (r, c) != (to_r, to_c):
+            from_piece: PieceType = self.grid[r, c].piece_type
+            if from_piece != PieceType.EMPTY:
+                return False
 
-    def __is_move_valid_king(self, move: Move, to_piece: Piece) -> bool: ...
+            r, c = r + dr, c + dc
+
+        return True
+
+    def __is_check(self):
+        pass

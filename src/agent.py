@@ -8,30 +8,40 @@ from models.piece import PieceColor, PieceType
 
 
 class MinimaxAgent:
+    """minimax ai agent with alpha-beta pruning.
+
+    Args:
+        depth (int): search depth for minimax tree
+    """
+
     def __init__(self, depth: int = 4):
         self.depth = depth
         self.color = PieceColor.BLACK
 
     def get_best_move(self, board: Board) -> Optional[Move]:
+        """find best move using minimax with alpha-beta pruning.
+
+        Args:
+            board (Board): current board state
+
+        Returns:
+            Optional[Move]: best move found, or None if no moves available
+        """
         best_move = None
         best_value = -math.inf
         alpha = -math.inf
         beta = math.inf
 
-        # get all valid moves for Black
         valid_moves = board.valid_moves[self.color]
 
         if not valid_moves:
             return None
 
-        # shuffle moves to add some randomness if values are equal
+        # shuffle for randomness when values equal
         random.shuffle(valid_moves)
 
         for move in valid_moves:
-            # apply move to get new board state
             new_board = board.apply_move(move)
-
-            # call minimax on the new board
             value = self.minimax(new_board, self.depth - 1, alpha, beta, False)
 
             if value > best_value:
@@ -52,11 +62,21 @@ class MinimaxAgent:
         beta: float,
         maximizing_player: bool,
     ) -> float:
+        """minimax algorithm with alpha-beta pruning.
+
+        Args:
+            board (Board): current board state
+            depth (int): remaining search depth
+            alpha (float): alpha value for pruning
+            beta (float): beta value for pruning
+            maximizing_player (bool): True if maximizing, False if minimizing
+
+        Returns:
+            float: evaluation score for this position
+        """
         if depth == 0:
             return self.evaluate(board)
 
-        # check for game over conditions (checkmate/stalemate)
-        # if no moves available for current player
         current_color = self.color if maximizing_player else PieceColor.WHITE
         if not board.valid_moves[current_color]:
             if board.check_status[current_color]:
@@ -88,9 +108,14 @@ class MinimaxAgent:
             return min_eval
 
     def evaluate(self, board: Board) -> float:
-        # simple material evaluation
-        # black is maximizing
+        """evaluate board position (simple material counting).
 
+        Args:
+            board (Board): board to evaluate
+
+        Returns:
+            float: evaluation score (positive favors black)
+        """
         white_score = 0
         black_score = 0
 

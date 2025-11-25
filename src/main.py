@@ -7,6 +7,11 @@ from models.piece import PieceColor
 
 
 def print_board(board: Board):
+    """display board in algebraic notation.
+
+    Args:
+        board (Board): board to display
+    """
     print("  a b c d")
     print(" +-------+")
     for r in range(board.size):
@@ -19,6 +24,14 @@ def print_board(board: Board):
 
 
 def parse_position(pos_str: str) -> Optional[Tuple[int, int]]:
+    """parse chess notation to board coordinates.
+
+    Args:
+        pos_str (str): position in algebraic notation (e.g., 'a2')
+
+    Returns:
+        Optional[Tuple[int, int]]: (row, col) or None if invalid
+    """
     if len(pos_str) != 2:
         return None
 
@@ -47,7 +60,7 @@ def main():
     print("Enter moves as 'a2 a3'")
 
     board = Board()
-    board.compute_game_state()  # Compute valid moves and game state
+    board.compute_game_state()
     agent = MinimaxAgent()
 
     turn = PieceColor.WHITE

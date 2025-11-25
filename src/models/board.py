@@ -65,7 +65,7 @@ class Board:
         if from_piece.piece_color == to_piece.piece_color:
             return False
 
-        match from_piece:
+        match from_piece.piece_type:
             case PieceType.PAWN:
                 return self.__is_move_valid_pawn(move, to_piece)
             case PieceType.ROOK:
@@ -73,29 +73,33 @@ class Board:
             case PieceType.QUEEN:
                 return self.__is_move_valid_queen(move, to_piece)
             case PieceType.KING:
-                return self.__is_move_valid_queen(move, to_piece)
+                return self.__is_move_valid_king(move, to_piece)
             case PieceType.EMPTY:
                 return False
 
     def __is_move_valid_pawn(self, move: Move, to_piece: Piece) -> bool:
-        assert move.piece == PieceType.PAWN
+        assert move.piece.piece_type == PieceType.PAWN
 
+        piece_color = move.piece.piece_color
+
+        r_to, c_to = move.to_pos
         r_from, c_from = move.from_pos
 
-        displacements = move.piece.displacements
-        straight_pos = r_from + displacements[0][0], c_from + displacements[0][1]
-        diagonal_pos1 = r_from + displacements[1][0], c_from + displacements[1][1]
-        diagonal_pos2 = r_from + displacements[2][0], c_from + displacements[2][1]
+        possible_moves = move.piece.possible_moves(position=move.from_pos)
+        if move.to_pos not in possible_moves:
+            return False
 
-        # match move.to_pos:
-        #     case straight_pos:
-        #         pass
-        #     case diagonal_pos1:
-        #         pass
-        #     case diagonal_pos2:
-        #         pass
-        #     case _:
-        #         pass
+        forward = -1 if piece_color == PieceColor.WHITE else 1
+
+        if (r_to == (r_from + forward)):
+            if c_to == c_from: # straight move
+                if to_piece.piece_type == PieceType.EMPTY:
+                    return True
+            elif c_to != c_from: # diagonal move
+                if to_piece.piece_type != PieceType.EMPTY and to_piece.piece_color != piece_color:
+                    return True
+                    
+            return False
 
     def __is_move_valid_rook(self, move: Move, to_piece: Piece) -> bool: ...
 

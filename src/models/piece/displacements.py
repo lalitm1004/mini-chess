@@ -4,7 +4,7 @@ from models.piece import PieceColor
 
 
 def pawn_displacements(color: PieceColor) -> List[Tuple[int, int]]:
-    direction = 1 if color is PieceColor.WHITE else -1
+    direction = -1 if color is PieceColor.WHITE else 1
     return [
         (direction, 0),
         (direction, -1),

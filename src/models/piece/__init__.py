@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Final, List, Tuple
+from typing import Dict, Final, List, Tuple, Set
 
 from config import BoardConfig
 from models.piece.displacements import (
@@ -44,8 +44,13 @@ class Piece:
 
     def possible_moves(
         self, position: Tuple[int, int], board_size: int = BoardConfig.SIZE
-    ) -> List[Tuple[int, int]]:
-        pass
+    ) -> Set[Tuple[int, int]]:
+        return {
+            (x, y)
+            for dx, dy in self.displacements
+            if 0 <= (x := position[0] + dx) < board_size
+            and 0 <= (y := position[1] + dy) < board_size
+        }
 
     def __repr__(self) -> str:
         return self.symbol

@@ -4,130 +4,114 @@ import random
 
 from models.board import Board
 from models.move import Move
-from models.piece import PieceColor, PieceType
+from models.piece import PieceColor, PieceType, Piece
 
 
 class MinimaxAgent:
-    """minimax ai agent with alpha-beta pruning.
-
-    Args:
-        depth (int): search depth for minimax tree
-    """
-
     def __init__(self, depth: int = 4):
         self.depth = depth
-        self.color = PieceColor.BLACK
+        self.color: PieceColor = PieceColor.BLACK
 
-    def get_best_move(self, board: Board) -> Optional[Move]:
-        """find best move using minimax with alpha-beta pruning.
+    def evaluate(self, board: Board):
+        scores = {
+            PieceColor.WHITE: 0,
+            PieceColor.BLACK: 0,  # maximize
+        }
 
-        Args:
-            board (Board): current board state
+        for r in range(board.size):
+            for c in range(board.size):
+                piece: Piece = board.grid[r, c]
+                if piece.piece_type == PieceType.EMPTY:
+                    continue
 
-        Returns:
-            Optional[Move]: best move found, or None if no moves available
-        """
-        best_move = None
-        best_value = -math.inf
+                scores[piece.piece_color] += piece.value
+
+        return scores[PieceColor.BLACK] - scores[PieceColor.WHITE]
+
+    def get_best_move(self, board: Board):
         alpha = -math.inf
         beta = math.inf
+        best_score = -math.inf
+        best_move = None
 
-        valid_moves = board.valid_moves[self.color]
+        all_maximizer_moves = board.valid_moves[self.color]
+        random.shuffle(all_maximizer_moves)
 
-        if not valid_moves:
-            return None
-
-        # shuffle for randomness when values equal
-        random.shuffle(valid_moves)
-
-        for move in valid_moves:
-            new_board = board.apply_move(move)
-            value = self.minimax(new_board, self.depth - 1, alpha, beta, False)
-
-            if value > best_value:
-                best_value = value
+        for move in all_maximizer_moves:
+            staged_board = board.apply_move(move)
+            score = self.minimax(
+                staged_board,
+                maximizing_player=False,
+                alpha=alpha,
+                beta=beta,
+                depth=self.depth - 1,
+            )
+            if score > best_score:
+                best_score = score
                 best_move = move
-
-            alpha = max(alpha, best_value)
-            if beta <= alpha:
-                break
 
         return best_move
 
     def minimax(
         self,
         board: Board,
-        depth: int,
+        maximizing_player: bool,
         alpha: float,
         beta: float,
-        maximizing_player: bool,
-    ) -> float:
-        """minimax algorithm with alpha-beta pruning.
-
-        Args:
-            board (Board): current board state
-            depth (int): remaining search depth
-            alpha (float): alpha value for pruning
-            beta (float): beta value for pruning
-            maximizing_player (bool): True if maximizing, False if minimizing
-
-        Returns:
-            float: evaluation score for this position
-        """
-        if depth == 0:
-            return self.evaluate(board)
-
+        depth: int,
+    ):
         current_color = self.color if maximizing_player else PieceColor.WHITE
-        if not board.valid_moves[current_color]:
-            if board.check_status[current_color]:
-                # checkmate
-                return -math.inf if maximizing_player else math.inf
+        score = 0
+
+        if depth == 0:
+            score = self.evaluate(board)
+            return score
+
+        if not board.valid_moves[current_color]:  # draw or mate
+            if board.check_status[current_color]:  # checkmate case
+                score = -math.inf if maximizing_player else math.inf
             else:
-                # stalemate
-                return 0
+                score = 0
+            return score
 
         if maximizing_player:
             max_eval = -math.inf
-            for move in board.valid_moves[self.color]:
-                new_board = board.apply_move(move)
-                eval = self.minimax(new_board, depth - 1, alpha, beta, False)
-                max_eval = max(max_eval, eval)
-                alpha = max(alpha, eval)
+            all_maximizer_moves = board.valid_moves[self.color]
+
+            for move in all_maximizer_moves:
+                staged_board = board.apply_move(move)
+                staged_eval = self.minimax(
+                    staged_board,
+                    maximizing_player=False,
+                    alpha=alpha,
+                    beta=beta,
+                    depth=depth - 1,
+                )
+                max_eval = max(max_eval, staged_eval)
+
+                alpha = max(alpha, max_eval)
                 if beta <= alpha:
                     break
+
             return max_eval
+
         else:
-            min_eval = math.inf
-            for move in board.valid_moves[PieceColor.WHITE]:
-                new_board = board.apply_move(move)
-                eval = self.minimax(new_board, depth - 1, alpha, beta, True)
-                min_eval = min(min_eval, eval)
-                beta = min(beta, eval)
+            min_eval = +math.inf
+            all_minimizer_moves = board.valid_moves[PieceColor.WHITE]
+
+            for move in all_minimizer_moves:
+                staged_board = board.apply_move(move)
+                staged_eval = self.minimax(
+                    staged_board,
+                    maximizing_player=True,
+                    alpha=alpha,
+                    beta=beta,
+                    depth=depth - 1,
+                )
+                min_eval = min(min_eval, staged_eval)
+
+                beta = min(beta, min_eval)
                 if beta <= alpha:
                     break
+
             return min_eval
-
-    def evaluate(self, board: Board) -> float:
-        """evaluate board position (simple material counting).
-
-        Args:
-            board (Board): board to evaluate
-
-        Returns:
-            float: evaluation score (positive favors black)
-        """
-        white_score = 0
-        black_score = 0
-
-        for r in range(board.size):
-            for c in range(board.size):
-                piece = board.grid[r, c]
-                if piece.piece_type == PieceType.EMPTY:
-                    continue
-
-                if piece.piece_color == PieceColor.WHITE:
-                    white_score += piece.value
-                else:
-                    black_score += piece.value
-
-        return black_score - white_score

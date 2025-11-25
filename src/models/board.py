@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Final, List, Optional, Tuple, Set
+from typing import Dict, List, Tuple
 
 from models.piece import Piece, PieceColor, PieceType
 from models.move import Move
@@ -19,26 +19,25 @@ class Board:
             valid_moves_black,
             threatened_pieces_white,
             threatened_pieces_black,
-        ) = self.__get_threatened_pieces()
+        ) = self.__check_all_moves()
 
-        self.valid_moves = {
+        self.valid_moves: Dict[PieceColor, List[Move]] = {
             PieceColor.WHITE: valid_moves_white,
             PieceColor.BLACK: valid_moves_black,
         }
 
-        self.threatened_pieces = {
+        self.threatened_pieces: Dict[PieceColor, List[Piece]] = {
             PieceColor.WHITE: threatened_pieces_white,
             PieceColor.BLACK: threatened_pieces_black,
         }
 
-        self.threat_scores = {
+        self.threat_scores: Dict[PieceColor, int] = {
             color: sum(piece.value for piece in pieces)
             for color, pieces in self.threatened_pieces.items()
         }
 
         is_check_white, is_check_black = self.__is_check()
-
-        self.check_status = {
+        self.check_status: Dict[PieceColor, bool] = {
             PieceColor.WHITE: is_check_white,
             PieceColor.BLACK: is_check_black,
         }
@@ -120,11 +119,11 @@ class Board:
 
         match from_piece.piece_type:
             case PieceType.PAWN:
-                validity = self.__is_move_valid_pawn(move, to_piece)
+                validity = self.__is_move_valid_pawn(move)
             case PieceType.ROOK:
                 validity = self.__is_move_valid_rook(move)
             case PieceType.QUEEN:
-                validity = self.__is_move_valid_queen(move, to_piece)
+                validity = self.__is_move_valid_queen(move)
             case PieceType.KING:
                 validity = self.__is_move_valid_king(move)
             case PieceType.EMPTY:
@@ -135,7 +134,7 @@ class Board:
 
         return validity, move
 
-    def __is_move_valid_pawn(self, move: Move, to_piece: Piece) -> bool:
+    def __is_move_valid_pawn(self, move: Move) -> bool:
         assert move.piece.piece_type == PieceType.PAWN
 
         piece_color = move.piece.piece_color
@@ -149,15 +148,13 @@ class Board:
 
         forward = -1 if piece_color == PieceColor.WHITE else 1
 
+        to_piece: Piece = self.grid[move.to_pos]
         if r_to == (r_from + forward):
             if c_to == c_from:  # straight move
                 if to_piece.piece_type == PieceType.EMPTY:
                     return True
             elif c_to != c_from:  # diagonal move
-                if (
-                    to_piece.piece_type != PieceType.EMPTY
-                    and to_piece.piece_color != piece_color
-                ):
+                if to_piece.piece_type != PieceType.EMPTY:
                     return True
 
             return False
@@ -179,7 +176,7 @@ class Board:
 
         return self.__is_path_clear(r_from, c_from, r_to, c_to)
 
-    def __is_move_valid_queen(self, move: Move, to_piece: Piece) -> bool:
+    def __is_move_valid_queen(self, move: Move) -> bool:
         assert move.piece.piece_type == PieceType.QUEEN
 
         r_to, c_to = move.to_pos
@@ -215,5 +212,15 @@ class Board:
 
         return True
 
-    def __is_check(self):
-        pass
+    def __is_check(self) -> Tuple[bool, bool]:
+        white_in_check = any(
+            piece.piece_type == PieceType.KING
+            for piece in self.threatened_pieces[PieceColor.WHITE]
+        )
+
+        black_in_check = any(
+            piece.piece_type == PieceType.KING
+            for piece in self.threatened_pieces[PieceColor.BLACK]
+        )
+
+        return white_in_check, black_in_check

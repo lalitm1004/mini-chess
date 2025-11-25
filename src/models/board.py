@@ -1,18 +1,51 @@
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from models.piece import Piece, PieceColor, PieceType
 from models.move import Move
-from config import BoardConfig
+
+SIZE: int = 4
+INITIAL_BOARD_STATE: np.ndarray = np.array(
+    [
+        [
+            Piece(PieceColor.BLACK, PieceType.ROOK),
+            Piece(PieceColor.BLACK, PieceType.QUEEN),
+            Piece(PieceColor.BLACK, PieceType.KING),
+            Piece(PieceColor.BLACK, PieceType.ROOK),
+        ],
+        [
+            Piece(PieceColor.BLACK, PieceType.PAWN),
+            Piece(PieceColor.BLACK, PieceType.PAWN),
+            Piece(PieceColor.BLACK, PieceType.PAWN),
+            Piece(PieceColor.BLACK, PieceType.PAWN),
+        ],
+        [
+            Piece(PieceColor.WHITE, PieceType.PAWN),
+            Piece(PieceColor.WHITE, PieceType.PAWN),
+            Piece(PieceColor.WHITE, PieceType.PAWN),
+            Piece(PieceColor.WHITE, PieceType.PAWN),
+        ],
+        [
+            Piece(PieceColor.WHITE, PieceType.ROOK),
+            Piece(PieceColor.WHITE, PieceType.QUEEN),
+            Piece(PieceColor.WHITE, PieceType.KING),
+            Piece(PieceColor.WHITE, PieceType.ROOK),
+        ],
+    ],
+    dtype=object,
+)
 
 
 class Board:
     def __init__(
         self,
-        grid: np.ndarray = BoardConfig.INITIAL_BOARD_STATE,
-        size: int = BoardConfig.SIZE,
+        grid: Optional[np.ndarray] = None,
+        size: int = SIZE,
+        check_validate: bool = True,
     ):
-        self.grid = grid
+        self.check_validate = check_validate
+
+        self.grid = grid if grid is not None else INITIAL_BOARD_STATE.copy()
         self.size = size
         (
             valid_moves_white,
@@ -42,6 +75,17 @@ class Board:
             PieceColor.BLACK: is_check_black,
         }
 
+    def apply_move(self, move: Move) -> "Board":
+        new_grid = self.grid.copy()
+
+        piece = move.piece
+        new_grid[move.to_pos] = piece
+        new_grid[move.from_pos] = Piece(PieceColor.EMPTY, PieceType.EMPTY)
+
+        return Board(
+            grid=new_grid, size=self.size, check_validate=(not self.check_validate)
+        )
+
     def __check_all_moves(
         self,
     ) -> Tuple[List[Move], List[Move], List[Piece], List[Piece]]:
@@ -59,8 +103,6 @@ class Board:
         for r_target in range(self.size):
             for c_target in range(self.size):
                 target_piece: Piece = self.grid[r_target, c_target]
-                if target_piece.piece_type == PieceType.EMPTY:
-                    continue
 
                 for r_moving in range(self.size):
                     for c_moving in range(self.size):
@@ -86,9 +128,10 @@ class Board:
                         valid_moves_map[moving_piece.piece_color].append(move)
 
                         # store threatened square
-                        threatened_squares[target_piece.piece_color].add(
-                            (r_target, c_target)
-                        )
+                        if target_piece.piece_type != PieceType.EMPTY:
+                            threatened_squares[target_piece.piece_color].add(
+                                (r_target, c_target)
+                            )
 
         threatened_pieces_white = [
             self.grid[r][c] for (r, c) in threatened_squares[PieceColor.WHITE]
@@ -131,6 +174,11 @@ class Board:
 
         if validity:
             move.captured_piece = to_piece
+
+            if not self.check_validate:
+                check_validate_board = self.apply_move(move)
+                if check_validate_board.check_status[from_piece.piece_color]:
+                    return False, move
 
         return validity, move
 

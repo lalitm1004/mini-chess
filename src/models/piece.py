@@ -2,12 +2,6 @@ from enum import Enum
 from typing import Dict, Final, List, Tuple, Set
 
 from config import BoardConfig
-from models.piece.displacements import (
-    pawn_displacements,
-    rook_displacements,
-    queen_displacements,
-    king_displacements,
-)
 
 
 class PieceColor(Enum):
@@ -56,16 +50,75 @@ class Piece:
         return self.symbol
 
 
+def pawn_displacements(color: PieceColor) -> List[Tuple[int, int]]:
+    direction = -1 if color is PieceColor.WHITE else 1
+    return [
+        (direction, 0),
+        (direction, -1),
+        (direction, 1),
+    ]
+
+
+def rook_displacements(max_range: int) -> List[Tuple[int, int]]:
+    directions = [
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+    ]
+    return __ray_displacements(directions, max_range)
+
+
+def queen_displacements(max_range: int) -> List[Tuple[int, int]]:
+    directions = [
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+        (1, 1),
+        (-1, -1),
+        (1, -1),
+        (-1, 1),
+    ]
+    return __ray_displacements(directions, max_range)
+
+
+def king_displacements() -> List[Tuple[int, int]]:
+    return [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ]
+
+
+def __ray_displacements(
+    directions: List[Tuple[int, int]], max_range: int
+) -> List[Tuple[int, int]]:
+    displacements: List[Tuple[int, int]] = []
+
+    for dx, dy in directions:
+        for step in range(1, max_range + 1):
+            displacements.append((dx * step, dy * step))
+
+    # dict.fromkeys to maintain order
+    return list(dict.fromkeys(displacements))
+
+
 # Unicode symbols for display
 UNICODE_PIECES: Final[Dict[Tuple[PieceColor, PieceType], str]] = {
-    (PieceColor.WHITE, PieceType.KING): "♚",
-    (PieceColor.WHITE, PieceType.QUEEN): "♛",
-    (PieceColor.WHITE, PieceType.ROOK): "♜",
-    (PieceColor.WHITE, PieceType.PAWN): "♟",
-    (PieceColor.BLACK, PieceType.KING): "♔",
-    (PieceColor.BLACK, PieceType.QUEEN): "♕",
-    (PieceColor.BLACK, PieceType.ROOK): "♖",
-    (PieceColor.BLACK, PieceType.PAWN): "♙",
+    (PieceColor.WHITE, PieceType.KING): "K",
+    (PieceColor.WHITE, PieceType.QUEEN): "Q",
+    (PieceColor.WHITE, PieceType.ROOK): "R",
+    (PieceColor.WHITE, PieceType.PAWN): "P",
+    (PieceColor.BLACK, PieceType.KING): "k",
+    (PieceColor.BLACK, PieceType.QUEEN): "q",
+    (PieceColor.BLACK, PieceType.ROOK): "r",
+    (PieceColor.BLACK, PieceType.PAWN): "p",
     (PieceColor.EMPTY, PieceType.EMPTY): ".",
 }
 

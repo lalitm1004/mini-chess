@@ -36,7 +36,6 @@ def parse_position(pos_str: str) -> Optional[Tuple[int, int]]:
     if not (1 <= row_num <= 4):
         return None
 
-    # 0-idx (row 0 is top, row 3 is bottom)
     r = 4 - row_num
     c = ord(col_char) - ord("a")
 
@@ -55,17 +54,34 @@ def main():
     while True:
         print_board(board)
 
-        # check for game over
-        if not board.valid_moves[turn]:
-            if board.check_status[turn]:
-                winner = "Black" if turn == PieceColor.WHITE else "White"
-                print(f"Checkmate! {winner} wins!")
-            else:
-                print("Stalemate!")
+        white_mate = board.checkmate_status[PieceColor.WHITE]
+        black_mate = board.checkmate_status[PieceColor.BLACK]
+        white_stalemate = board.stalemate_status[PieceColor.WHITE]
+        black_stalemate = board.stalemate_status[PieceColor.BLACK]
+        white_check = board.check_status[PieceColor.WHITE]
+        black_check = board.check_status[PieceColor.BLACK]
+
+        print("check", white_check, black_check)
+        print("mate", white_mate, black_mate)
+
+        if white_mate:
+            print("Checkmate! Black wins!")
             break
 
+        if black_mate:
+            print("Checkmate! White wins!")
+            break
+
+        if white_stalemate or black_stalemate:
+            print("Stalemate! Draw!")
+            break
+
+        if (turn == PieceColor.WHITE and white_check) or (
+            turn == PieceColor.BLACK and black_check
+        ):
+            print("Check!")
+
         if turn == PieceColor.WHITE:
-            # user turn
             while True:
                 try:
                     move_str = input("Enter move: ").strip()
@@ -111,12 +127,10 @@ def main():
             turn = PieceColor.BLACK
 
         else:
-            # agent turn
             print("Agent is thinking...")
             best_move = agent.get_best_move(board)
 
             if best_move:
-                # convert back to string for display
                 r_from, c_from = best_move.from_pos
                 r_to, c_to = best_move.to_pos
 
@@ -125,8 +139,6 @@ def main():
 
                 print(f"Agent plays: {from_str} {to_str}")
                 board = board.apply_move(best_move)
-            else:
-                print("Agent has no moves (should be handled by game over check).")
 
             turn = PieceColor.WHITE
 

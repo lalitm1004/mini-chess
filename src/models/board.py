@@ -75,16 +75,62 @@ class Board:
             PieceColor.BLACK: is_check_black,
         }
 
-    def apply_move(self, move: Move) -> "Board":
+        # compute checkmate and stalemate states
+        is_checkmate_white, is_stalemate_white = self.__is_checkmate_or_stalemate(
+            PieceColor.WHITE
+        )
+        is_checkmate_black, is_stalemate_black = self.__is_checkmate_or_stalemate(
+            PieceColor.BLACK
+        )
+
+        self.checkmate_status = {
+            PieceColor.WHITE: is_checkmate_white,
+            PieceColor.BLACK: is_checkmate_black,
+        }
+
+        self.stalemate_status = {
+            PieceColor.WHITE: is_stalemate_white,
+            PieceColor.BLACK: is_stalemate_black,
+        }
+
+        # print(self.valid_moves)
+        # print(self.threatened_pieces)
+
+    def apply_move(
+        self, move: Move, override_validate: Optional[bool] = None
+    ) -> "Board":
         new_grid = self.grid.copy()
 
         piece = move.piece
         new_grid[move.to_pos] = piece
         new_grid[move.from_pos] = Piece(PieceColor.EMPTY, PieceType.EMPTY)
 
-        return Board(
-            grid=new_grid, size=self.size, check_validate=(not self.check_validate)
+        target_validate = (
+            override_validate if override_validate is not None else self.check_validate
         )
+
+        return Board(grid=new_grid, size=self.size, check_validate=target_validate)
+
+    def __is_checkmate_or_stalemate(self, color: PieceColor) -> Tuple[bool, bool]:
+        # gathering all legal moves for this side
+        moves = self.valid_moves[color]
+
+        # side is in check
+        in_check = self.check_status[color]
+
+        # no legal moves
+        no_moves = len(moves) == 0
+
+        # checkmate logic
+        if in_check and no_moves:
+            return True, False
+
+        # stalemate logic
+        if (not in_check) and no_moves:
+            return False, True
+
+        # normal state
+        return False, False
 
     def __check_all_moves(
         self,
@@ -175,8 +221,8 @@ class Board:
         if validity:
             move.captured_piece = to_piece
 
-            if not self.check_validate:
-                check_validate_board = self.apply_move(move)
+            if self.check_validate:
+                check_validate_board = self.apply_move(move, override_validate=False)
                 if check_validate_board.check_status[from_piece.piece_color]:
                     return False, move
 

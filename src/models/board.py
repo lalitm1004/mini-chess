@@ -62,7 +62,9 @@ class Board:
         from_piece: Piece = move.piece
         to_piece: Piece = self.grid[r_to, c_to]
 
-        if from_piece.piece_color == to_piece.piece_color:
+        if (
+            from_piece.piece_color == to_piece.piece_color
+        ):  # target piece color cannot be the same
             return False
 
         match from_piece.piece_type:
@@ -91,17 +93,55 @@ class Board:
 
         forward = -1 if piece_color == PieceColor.WHITE else 1
 
-        if (r_to == (r_from + forward)):
-            if c_to == c_from: # straight move
+        if r_to == (r_from + forward):
+            if c_to == c_from:  # straight move
                 if to_piece.piece_type == PieceType.EMPTY:
                     return True
-            elif c_to != c_from: # diagonal move
-                if to_piece.piece_type != PieceType.EMPTY and to_piece.piece_color != piece_color:
+            elif c_to != c_from:  # diagonal move
+                if (
+                    to_piece.piece_type != PieceType.EMPTY
+                    and to_piece.piece_color != piece_color
+                ):
                     return True
-                    
+
             return False
 
-    def __is_move_valid_rook(self, move: Move, to_piece: Piece) -> bool: ...
+        return False
+
+    def __is_move_valid_rook(self, move: Move, to_piece: Piece) -> bool:
+        assert move.piece.piece_type == PieceType.ROOK
+
+        r_to, c_to = move.to_pos
+        r_from, c_from = move.from_pos
+
+        possible_moves = move.piece.possible_moves(position=move.from_pos)
+        if move.to_pos not in possible_moves:
+            return False
+
+        if r_to == r_from:  # horizontal move
+            start_col = min(c_to, c_from)
+            end_col = max(c_to, c_from)
+
+            for col in range(start_col + 1, end_col):  # excl of both ends!
+                current_pos = (r_from, col)
+                current_piece_type: PieceType = self.grid[current_pos].piece_type
+                if current_piece_type != PieceType.EMPTY:
+                    return False
+
+            return True
+        elif c_to == c_from:  # vertical move
+            start_row = min(r_to, r_from)
+            end_row = max(r_to, r_from)
+
+            for row in range(start_row + 1, end_row):  # excl of both ends!
+                current_pos = (row, c_from)
+                current_piece_type: PieceType = self.grid[current_pos].piece_type
+                if current_piece_type != PieceType.EMPTY:
+                    return False
+
+            return True
+
+        return False
 
     def __is_move_valid_queen(self, move: Move, to_piece: Piece) -> bool: ...
 

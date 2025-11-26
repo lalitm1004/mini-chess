@@ -106,9 +106,13 @@ class Board:
             PieceColor.BLACK: is_check_black and len(valid_moves_black) == 0,
         }
 
+        only_kings = self._only_kings_left()
+
         self.stalemate_status = {
-            PieceColor.WHITE: not is_check_white and len(valid_moves_white) == 0,
-            PieceColor.BLACK: not is_check_black and len(valid_moves_black) == 0,
+            PieceColor.WHITE: (not is_check_white and len(valid_moves_white) == 0)
+            or only_kings,
+            PieceColor.BLACK: (not is_check_black and len(valid_moves_black) == 0)
+            or only_kings,
         }
 
         # compute threatened pieces
@@ -132,6 +136,16 @@ class Board:
             color: sum(piece.value for piece in pieces)
             for color, pieces in self.threatened_pieces.items()
         }
+
+    def _only_kings_left(self) -> bool:
+        pieces = [self.grid[r, c] for r in range(self.size) for c in range(self.size)]
+
+        non_empty = [p for p in pieces if p.piece_type != PieceType.EMPTY]
+
+        if len(non_empty) != 2:
+            return False
+
+        return all(p.piece_type == PieceType.KING for p in non_empty)
 
     def get_valid_moves_for_color(self, color: PieceColor) -> List[Move]:
         """get all legal moves for the given color.

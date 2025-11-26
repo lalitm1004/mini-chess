@@ -4,7 +4,6 @@ import math
 import random
 
 from models.board import Board
-from models.move import Move
 from models.piece import PieceColor, PieceType, Piece
 
 

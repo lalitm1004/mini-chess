@@ -4,7 +4,8 @@ import math
 import random
 
 from models.board import Board
-from models.piece import PieceColor, PieceType, Piece
+from models.piece import PieceColor, PieceType, Piece, SILVERMAN_DEFAULT_START_SCORES
+from models.move import Move
 
 
 class MinimaxAgent:
@@ -34,7 +35,12 @@ class MinimaxAgent:
             int: A heuristic scoring of the board state. Positive means BLACK advantage,
                 negative means WHITE advantage.
         """
-        scores = {
+        presence_scores = {
+            PieceColor.WHITE: 0,
+            PieceColor.BLACK: 0,
+        }
+
+        absence_scores = {
             PieceColor.WHITE: 0,
             PieceColor.BLACK: 0,
         }
@@ -43,9 +49,13 @@ class MinimaxAgent:
             for c in range(board.size):
                 piece: Piece = board.grid[r, c]
                 if piece.piece_type != PieceType.EMPTY:
-                    scores[piece.piece_color] += piece.value
+                    presence_scores[piece.piece_color] += piece.value
 
-        return scores[PieceColor.BLACK] - scores[PieceColor.WHITE]
+        for color in absence_scores.keys():
+            absence_scores[color] = SILVERMAN_DEFAULT_START_SCORES[color] - presence_scores[color]
+
+        score = (presence_scores[PieceColor.BLACK] + absence_scores[PieceColor.WHITE]) - (presence_scores[PieceColor.WHITE] + absence_scores[PieceColor.BLACK])
+        return score
 
     def get_best_move(self, board: Board) -> Optional[Move]:
         """Get the best move for the current player using minimax search.

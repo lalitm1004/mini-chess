@@ -218,3 +218,8 @@ PIECE_DISPLACEMENTS: Final[
     (PieceColor.WHITE, PieceType.KING): king_displacements(),
     (PieceColor.BLACK, PieceType.KING): king_displacements(),
 }
+
+SILVERMAN_DEFAULT_START_SCORES: Final[Dict[PieceColor, int]] = {
+    PieceColor.WHITE: 1023,
+    PieceColor.BLACK: 1023
+}

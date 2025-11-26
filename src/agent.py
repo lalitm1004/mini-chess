@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, List
 import math
 import random
 
@@ -66,13 +66,7 @@ class MinimaxAgent:
                 SILVERMAN_DEFAULT_START_SCORES[color] - presence_scores[color]
             )
 
-        # Penalty for pieces that are threatened
-        threatened_penalty = {
-            PieceColor.WHITE: board.threat_scores[PieceColor.WHITE],
-            PieceColor.BLACK: board.threat_scores[PieceColor.BLACK],
-        }
-
-        # Reward for pieces this color threatens
+        # reward for pieces this color threatens
         threatened_reward = {
             PieceColor.WHITE: board.threat_scores[PieceColor.BLACK],
             PieceColor.BLACK: board.threat_scores[PieceColor.WHITE],
@@ -82,13 +76,11 @@ class MinimaxAgent:
             presence_scores[PieceColor.BLACK]
             + absence_scores[PieceColor.WHITE]
             + center_scores[PieceColor.BLACK]
-            - threatened_penalty[PieceColor.BLACK]
             + threatened_reward[PieceColor.BLACK]
         ) - (
             presence_scores[PieceColor.WHITE]
             + absence_scores[PieceColor.BLACK]
             + center_scores[PieceColor.WHITE]
-            - threatened_penalty[PieceColor.WHITE]
             + threatened_reward[PieceColor.WHITE]
         )
         return score
@@ -108,17 +100,23 @@ class MinimaxAgent:
         best_move: Optional[Move] = None
 
         all_maximizer_moves = board.valid_moves[self.color]
-        random.shuffle(all_maximizer_moves)  # chaos improves unpredictability
+        all_maximizer_moves = self.order_moves(board, all_maximizer_moves)
 
         for move in all_maximizer_moves:
             staged_board = board.apply_move(move)
-            score = self.minimax(
-                staged_board,
-                maximizing_player=False,
-                alpha=alpha,
-                beta=beta,
-                depth=self.depth - 1,
-            )
+
+            # immediate check for one-move checkmate
+            if not staged_board.valid_moves[PieceColor.WHITE] and staged_board.check_status[PieceColor.WHITE]:
+                score = math.inf
+            else:
+                score = self.minimax(
+                    staged_board,
+                    maximizing_player=False,
+                    alpha=alpha,
+                    beta=beta,
+                    depth=self.depth - 1,
+                )
+
             if score > best_score:
                 best_score = score
                 best_move = move
@@ -146,65 +144,85 @@ class MinimaxAgent:
             float: The heuristic score of the evaluated board.
         """
         current_color = self.color if maximizing_player else PieceColor.WHITE
+        opponent_color = PieceColor.WHITE if maximizing_player else self.color
 
-        # depth reached
         if depth == 0:
             return self.evaluate(board)
 
+        # terminal check: current player
         if not board.valid_moves[current_color]:
-            if board.check_status[current_color]:  # checkmate
+            if board.check_status[current_color]:
                 return -math.inf if maximizing_player else math.inf
-            return 0  # stalemate
+            return 0
 
-        if not board.valid_moves[PieceColor.WHITE]:
-            if board.check_status[PieceColor.WHITE]:  # checkmate
-                return math.inf
-            return 0  # stalemate
+        # terminal check: opponent
+        if not board.valid_moves[opponent_color]:
+            if board.check_status[opponent_color]:
+                return math.inf if maximizing_player else -math.inf
+            return 0
 
-        # maximizer branch
         if maximizing_player:
             max_eval = -math.inf
             moves = board.valid_moves[self.color]
 
             for move in moves:
                 staged_board = board.apply_move(move)
-                staged_eval = self.minimax(
-                    staged_board,
-                    maximizing_player=False,
-                    alpha=alpha,
-                    beta=beta,
-                    depth=depth - 1,
-                )
+
+                # one-move checkmate detection
+                if not staged_board.valid_moves[PieceColor.WHITE] and staged_board.check_status[PieceColor.WHITE]:
+                    staged_eval = math.inf
+                else:
+                    staged_eval = self.minimax(
+                        staged_board,
+                        maximizing_player=False,
+                        alpha=alpha,
+                        beta=beta,
+                        depth=depth - 1,
+                    )
+
                 max_eval = max(max_eval, staged_eval)
                 alpha = max(alpha, max_eval)
-
                 if beta <= alpha:
-                    break  # pruning
+                    break
 
             return max_eval
 
-        # minimizer branch
-        min_eval = math.inf
-        moves = board.valid_moves[PieceColor.WHITE]
+        else:
+            min_eval = math.inf
+            moves = board.valid_moves[PieceColor.WHITE]
 
-        for move in moves:
-            staged_board = board.apply_move(move)
-            staged_eval = self.minimax(
-                staged_board,
-                maximizing_player=True,
-                alpha=alpha,
-                beta=beta,
-                depth=depth - 1,
-            )
-            min_eval = min(min_eval, staged_eval)
-            beta = min(beta, min_eval)
+            for move in moves:
+                staged_board = board.apply_move(move)
 
-            if beta <= alpha:
-                break  # more pruning
+                # one-move checkmate detection
+                if not staged_board.valid_moves[self.color] and staged_board.check_status[self.color]:
+                    staged_eval = -math.inf
+                else:
+                    staged_eval = self.minimax(
+                        staged_board,
+                        maximizing_player=True,
+                        alpha=alpha,
+                        beta=beta,
+                        depth=depth - 1,
+                    )
 
-        return min_eval
+                min_eval = min(min_eval, staged_eval)
+                beta = min(beta, min_eval)
+                if beta <= alpha:
+                    break
+
+            return min_eval
 
     def order_moves(self, board: Board, moves: List[Move]):
+        """Simple move ordering heuristic: prioritize captures.
+
+        Args:
+            board (Board): The current board.
+            moves (List[Move]): List of legal moves.
+
+        Returns:
+            List[Move]: Moves sorted by priority.
+        """
         def move_value(move: Move):
             if move.captured_piece:
                 return (move.captured_piece.value * 10) - move.piece.value

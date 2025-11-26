@@ -45,16 +45,36 @@ class MinimaxAgent:
             PieceColor.BLACK: 0,
         }
 
+        center_positions = [(1, 1), (1, 2), (2, 1), (2, 2)]
+
+        center_scores = {
+            PieceColor.WHITE: 0,
+            PieceColor.BLACK: 0,
+        }
+
         for r in range(board.size):
             for c in range(board.size):
                 piece: Piece = board.grid[r, c]
+
                 if piece.piece_type != PieceType.EMPTY:
                     presence_scores[piece.piece_color] += piece.value
+                    if (r, c) in center_positions:
+                        center_scores[piece.piece_color] += piece.value
 
         for color in absence_scores.keys():
-            absence_scores[color] = SILVERMAN_DEFAULT_START_SCORES[color] - presence_scores[color]
+            absence_scores[color] = (
+                SILVERMAN_DEFAULT_START_SCORES[color] - presence_scores[color]
+            )
 
-        score = (presence_scores[PieceColor.BLACK] + absence_scores[PieceColor.WHITE]) - (presence_scores[PieceColor.WHITE] + absence_scores[PieceColor.BLACK])
+        score = (
+            presence_scores[PieceColor.BLACK]
+            + absence_scores[PieceColor.WHITE]
+            + center_scores[PieceColor.BLACK]
+        ) - (
+            presence_scores[PieceColor.WHITE]
+            + absence_scores[PieceColor.BLACK]
+            + center_scores[PieceColor.WHITE]
+        )
         return score
 
     def get_best_move(self, board: Board) -> Optional[Move]:

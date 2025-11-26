@@ -221,5 +221,5 @@ PIECE_DISPLACEMENTS: Final[
 
 SILVERMAN_DEFAULT_START_SCORES: Final[Dict[PieceColor, int]] = {
     PieceColor.WHITE: 1023,
-    PieceColor.BLACK: 1023
+    PieceColor.BLACK: 1023,
 }

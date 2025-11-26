@@ -139,6 +139,11 @@ class MinimaxAgent:
             if board.check_status[current_color]:  # checkmate
                 return -math.inf if maximizing_player else math.inf
             return 0  # stalemate
+        
+        if not board.valid_moves[PieceColor.WHITE]:
+            if board.check_status[PieceColor.WHITE]:  # checkmate
+                return math.inf
+            return 0  # stalemate
 
         # maximizer branch
         if maximizing_player:

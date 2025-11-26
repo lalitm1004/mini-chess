@@ -66,14 +66,30 @@ class MinimaxAgent:
                 SILVERMAN_DEFAULT_START_SCORES[color] - presence_scores[color]
             )
 
+        # Penalty for pieces that are threatened
+        threatened_penalty = {
+            PieceColor.WHITE: board.threat_scores[PieceColor.WHITE],
+            PieceColor.BLACK: board.threat_scores[PieceColor.BLACK],
+        }
+
+        # Reward for pieces this color threatens
+        threatened_reward = {
+            PieceColor.WHITE: board.threat_scores[PieceColor.BLACK],
+            PieceColor.BLACK: board.threat_scores[PieceColor.WHITE],
+        }
+
         score = (
             presence_scores[PieceColor.BLACK]
             + absence_scores[PieceColor.WHITE]
             + center_scores[PieceColor.BLACK]
+            - threatened_penalty[PieceColor.BLACK]
+            + threatened_reward[PieceColor.BLACK]
         ) - (
             presence_scores[PieceColor.WHITE]
             + absence_scores[PieceColor.BLACK]
             + center_scores[PieceColor.WHITE]
+            - threatened_penalty[PieceColor.WHITE]
+            + threatened_reward[PieceColor.WHITE]
         )
         return score
 
@@ -139,7 +155,7 @@ class MinimaxAgent:
             if board.check_status[current_color]:  # checkmate
                 return -math.inf if maximizing_player else math.inf
             return 0  # stalemate
-        
+
         if not board.valid_moves[PieceColor.WHITE]:
             if board.check_status[PieceColor.WHITE]:  # checkmate
                 return math.inf
@@ -187,3 +203,11 @@ class MinimaxAgent:
                 break  # more pruning
 
         return min_eval
+
+    def order_moves(self, board: Board, moves: List[Move]):
+        def move_value(move: Move):
+            if move.captured_piece:
+                return (move.captured_piece.value * 10) - move.piece.value
+            return 0
+
+        return sorted(moves, key=move_value, reverse=True)

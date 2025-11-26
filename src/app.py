@@ -140,7 +140,7 @@ class GameApp:
     def reset_game(self):
         self.board = Board()
         self.board.compute_game_state()
-        self.agent = MinimaxAgent(depth=4)
+        self.agent = MinimaxAgent(depth=2)
 
         self.turn = PieceColor.WHITE
         self.selected_pos: Optional[Tuple[int, int]] = None

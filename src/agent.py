@@ -1,14 +1,12 @@
-from typing import Optional
 import math
 import random
 
 from models.board import Board
-from models.move import Move
 from models.piece import PieceColor, PieceType, Piece
 
 
 class MinimaxAgent:
-    def __init__(self, depth: int = 4):
+    def __init__(self, depth: int = 100):
         self.depth = depth
         self.color: PieceColor = PieceColor.BLACK
 

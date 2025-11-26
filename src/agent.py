@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 import math
 import random
@@ -8,34 +9,61 @@ from models.piece import PieceColor, PieceType, Piece
 
 
 class MinimaxAgent:
-    def __init__(self, depth: int = 4):
-        self.depth = depth
+    """A simple minimax chess agent with alpha-beta pruning.
+
+    Attributes:
+        depth (int): Maximum recursion depth for the minimax search.
+        color (PieceColor): The agent's assigned color (defaults to BLACK).
+    """
+
+    def __init__(self, depth: int = 100) -> None:
+        """Initialize a MinimaxAgent.
+
+        Args:
+            depth (int, optional): Depth of minimax search. Defaults to 4.
+        """
+        self.depth: int = depth
         self.color: PieceColor = PieceColor.BLACK
 
-    def evaluate(self, board: Board):
+    def evaluate(self, board: Board) -> int:
+        """Evaluate the current board position from the AI's perspective.
+
+        Args:
+            board (Board): The game board to evaluate.
+
+        Returns:
+            int: A heuristic scoring of the board state. Positive means BLACK advantage,
+                negative means WHITE advantage.
+        """
         scores = {
             PieceColor.WHITE: 0,
-            PieceColor.BLACK: 0,  # maximize
+            PieceColor.BLACK: 0,
         }
 
         for r in range(board.size):
             for c in range(board.size):
                 piece: Piece = board.grid[r, c]
-                if piece.piece_type == PieceType.EMPTY:
-                    continue
-
-                scores[piece.piece_color] += piece.value
+                if piece.piece_type != PieceType.EMPTY:
+                    scores[piece.piece_color] += piece.value
 
         return scores[PieceColor.BLACK] - scores[PieceColor.WHITE]
 
-    def get_best_move(self, board: Board):
+    def get_best_move(self, board: Board) -> Optional[Move]:
+        """Get the best move for the current player using minimax search.
+
+        Args:
+            board (Board): The current game board.
+
+        Returns:
+            Optional[Move]: The best move found, or None if no legal moves exist.
+        """
         alpha = -math.inf
         beta = math.inf
         best_score = -math.inf
-        best_move = None
+        best_move: Optional[Move] = None
 
         all_maximizer_moves = board.valid_moves[self.color]
-        random.shuffle(all_maximizer_moves)
+        random.shuffle(all_maximizer_moves)  # chaos improves unpredictability
 
         for move in all_maximizer_moves:
             staged_board = board.apply_move(move)
@@ -59,26 +87,36 @@ class MinimaxAgent:
         alpha: float,
         beta: float,
         depth: int,
-    ):
+    ) -> float:
+        """Recursive minimax search with alpha-beta pruning.
+
+        Args:
+            board (Board): The current game state.
+            maximizing_player (bool): Whether the current layer is maximizing.
+            alpha (float): Current alpha (best already explored for maximizer).
+            beta (float): Current beta (best already explored for minimizer).
+            depth (int): Remaining search depth.
+
+        Returns:
+            float: The heuristic score of the evaluated board.
+        """
         current_color = self.color if maximizing_player else PieceColor.WHITE
-        score = 0
 
+        # depth reached
         if depth == 0:
-            score = self.evaluate(board)
-            return score
+            return self.evaluate(board)
 
-        if not board.valid_moves[current_color]:  # draw or mate
-            if board.check_status[current_color]:  # checkmate case
-                score = -math.inf if maximizing_player else math.inf
-            else:
-                score = 0
-            return score
+        if not board.valid_moves[current_color]:
+            if board.check_status[current_color]:  # checkmate
+                return -math.inf if maximizing_player else math.inf
+            return 0  # stalemate
 
+        # maximizer branch
         if maximizing_player:
             max_eval = -math.inf
-            all_maximizer_moves = board.valid_moves[self.color]
+            moves = board.valid_moves[self.color]
 
-            for move in all_maximizer_moves:
+            for move in moves:
                 staged_board = board.apply_move(move)
                 staged_eval = self.minimax(
                     staged_board,
@@ -88,30 +126,30 @@ class MinimaxAgent:
                     depth=depth - 1,
                 )
                 max_eval = max(max_eval, staged_eval)
-
                 alpha = max(alpha, max_eval)
+
                 if beta <= alpha:
-                    break
+                    break  # pruning
 
             return max_eval
 
-        else:
-            min_eval = +math.inf
-            all_minimizer_moves = board.valid_moves[PieceColor.WHITE]
+        # minimizer branch
+        min_eval = math.inf
+        moves = board.valid_moves[PieceColor.WHITE]
 
-            for move in all_minimizer_moves:
-                staged_board = board.apply_move(move)
-                staged_eval = self.minimax(
-                    staged_board,
-                    maximizing_player=True,
-                    alpha=alpha,
-                    beta=beta,
-                    depth=depth - 1,
-                )
-                min_eval = min(min_eval, staged_eval)
+        for move in moves:
+            staged_board = board.apply_move(move)
+            staged_eval = self.minimax(
+                staged_board,
+                maximizing_player=True,
+                alpha=alpha,
+                beta=beta,
+                depth=depth - 1,
+            )
+            min_eval = min(min_eval, staged_eval)
+            beta = min(beta, min_eval)
 
-                beta = min(beta, min_eval)
-                if beta <= alpha:
-                    break
+            if beta <= alpha:
+                break  # more pruning
 
-            return min_eval
+        return min_eval

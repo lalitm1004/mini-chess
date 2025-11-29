@@ -5,16 +5,12 @@ from config import BoardConfig
 
 
 class PieceColor(Enum):
-    """piece color enumeration."""
-
     BLACK = 0
     WHITE = 1
     EMPTY = None
 
 
 class PieceType(Enum):
-    """piece type enumeration."""
-
     PAWN = 0
     ROOK = 1
     QUEEN = 2
@@ -23,24 +19,12 @@ class PieceType(Enum):
 
 
 class Piece:
-    """represents a chess piece.
-
-    Args:
-        piece_color (PieceColor): color of the piece
-        piece_type (PieceType): type of the piece
-    """
-
     def __init__(self, piece_color: PieceColor, piece_type: PieceType) -> None:
         self.piece_color = piece_color
         self.piece_type = piece_type
 
     @property
     def symbol(self) -> str:
-        """unicode symbol for display.
-
-        Returns:
-            str: unicode character representing this piece
-        """
         return UNICODE_PIECES[(self.piece_color, self.piece_type)]
 
     @property
@@ -55,11 +39,6 @@ class Piece:
 
     @property
     def value(self) -> int:
-        """material value of the piece.
-
-        Returns:
-            int: point value for evaluation
-        """
         return PIECE_VALUES[self.piece_type]
 
     def possible_moves(
@@ -86,14 +65,6 @@ class Piece:
 
 
 def pawn_displacements(color: PieceColor) -> List[Tuple[int, int]]:
-    """generate pawn movement displacements for given color.
-
-    Args:
-        color (PieceColor): color of the pawn
-
-    Returns:
-        List[Tuple[int, int]]: forward and diagonal displacements
-    """
     direction = -1 if color is PieceColor.WHITE else 1
     return [
         (direction, 0),
@@ -103,14 +74,6 @@ def pawn_displacements(color: PieceColor) -> List[Tuple[int, int]]:
 
 
 def rook_displacements(max_range: int) -> List[Tuple[int, int]]:
-    """generate rook movement displacements.
-
-    Args:
-        max_range (int): maximum squares in any direction
-
-    Returns:
-        List[Tuple[int, int]]: horizontal and vertical displacements
-    """
     directions = [
         (1, 0),
         (-1, 0),
@@ -121,14 +84,6 @@ def rook_displacements(max_range: int) -> List[Tuple[int, int]]:
 
 
 def queen_displacements(max_range: int) -> List[Tuple[int, int]]:
-    """generate queen movement displacements.
-
-    Args:
-        max_range (int): maximum squares in any direction
-
-    Returns:
-        List[Tuple[int, int]]: horizontal, vertical, and diagonal displacements
-    """
     directions = [
         (1, 0),
         (-1, 0),
@@ -143,11 +98,6 @@ def queen_displacements(max_range: int) -> List[Tuple[int, int]]:
 
 
 def king_displacements() -> List[Tuple[int, int]]:
-    """generate king movement displacements.
-
-    Returns:
-        List[Tuple[int, int]]: all 8 adjacent square displacements
-    """
     return [
         (-1, -1),
         (-1, 0),

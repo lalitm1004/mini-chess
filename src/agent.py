@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Optional, List
 import math
-import random
 
 from models.board import Board
 from models.piece import PieceColor, PieceType, Piece, SILVERMAN_DEFAULT_START_SCORES
@@ -106,7 +105,10 @@ class MinimaxAgent:
             staged_board = board.apply_move(move)
 
             # immediate check for one-move checkmate
-            if not staged_board.valid_moves[PieceColor.WHITE] and staged_board.check_status[PieceColor.WHITE]:
+            if (
+                not staged_board.valid_moves[PieceColor.WHITE]
+                and staged_board.check_status[PieceColor.WHITE]
+            ):
                 score = math.inf
             else:
                 score = self.minimax(
@@ -169,7 +171,10 @@ class MinimaxAgent:
                 staged_board = board.apply_move(move)
 
                 # one-move checkmate detection
-                if not staged_board.valid_moves[PieceColor.WHITE] and staged_board.check_status[PieceColor.WHITE]:
+                if (
+                    not staged_board.valid_moves[PieceColor.WHITE]
+                    and staged_board.check_status[PieceColor.WHITE]
+                ):
                     staged_eval = math.inf
                 else:
                     staged_eval = self.minimax(
@@ -195,7 +200,10 @@ class MinimaxAgent:
                 staged_board = board.apply_move(move)
 
                 # one-move checkmate detection
-                if not staged_board.valid_moves[self.color] and staged_board.check_status[self.color]:
+                if (
+                    not staged_board.valid_moves[self.color]
+                    and staged_board.check_status[self.color]
+                ):
                     staged_eval = -math.inf
                 else:
                     staged_eval = self.minimax(
@@ -223,6 +231,7 @@ class MinimaxAgent:
         Returns:
             List[Move]: Moves sorted by priority.
         """
+
         def move_value(move: Move):
             if move.captured_piece:
                 return (move.captured_piece.value * 10) - move.piece.value

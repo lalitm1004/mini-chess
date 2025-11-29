@@ -1,9 +1,3 @@
-"""Test suite for evaluating agent tactical correctness with predefined positions.
-
-This module tests the MinimaxAgent against specific board positions to verify
-it makes tactically correct moves in various scenarios.
-"""
-
 import time
 from typing import List, Callable, Optional
 from dataclasses import dataclass, field
